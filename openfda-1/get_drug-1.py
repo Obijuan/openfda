@@ -68,7 +68,7 @@ marca = drugs['openfda']['brand_name'][0]
 fabricante = drugs['openfda']['manufacturer_name'][0]
 
 # Identificador: drugs.id
-id = drugs['id'];
+id = drugs['id']
 
 # Proposito: drugs.purpose[0]
 proposito = drugs['purpose'][0]
@@ -84,7 +84,7 @@ print("Proposito: {}".format(proposito))
 conn.request("GET", REST_RESOURCE_NAME + '?limit=10', None, headers)
 
 # Obtener la respuesta del servidor
-print ("")
+print("")
 print("* Consulta de 10 medicamentos")
 r2 = conn.getresponse()
 
@@ -105,5 +105,3 @@ drugs = drugs['results']
 
 for drug in drugs:
     print("* {}".format(drug['id']))
-
-
