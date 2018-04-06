@@ -1,9 +1,15 @@
 import http.server
 import socketserver
 
+socketserver.TCPServer.allow_reuse_address = True
+
 # --- Puerto donde lanzar el servidor
 PORT = 8000
 
+HTML1 = """
+ASDFASDFASF
+
+"""
 
 class testHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
 
