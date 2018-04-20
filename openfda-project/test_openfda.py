@@ -40,7 +40,7 @@ class OpenFDAHTMLParser(HTMLParser):
         self.items_number = 0
 
     def handle_starttag(self, tag, attrs):
-        # print("Encountered a start tag:", tag)
+        print("Encountered a start tag:", tag)
         if tag == "form":
             self.forms_number += 1
             for attr in attrs:
@@ -123,9 +123,11 @@ class TestOpenFDA(unittest.TestCase):
         self.assertEqual(set(self.TEST_ACTIONS), set(parser.actions_list))
 
     def test_list_drugs(self):
+        #print("Probando LISTDRUGS!!!")
         url = 'http://localhost:' + str(self.TEST_PORT)
         url += '/listDrugs?limit=10'
         resp = requests.get(url)
+        #print("Respuesta: {}".format(resp.text))
         parser = OpenFDAHTMLParser()
         parser.feed(resp.text)
         self.assertEqual(parser.items_number, 10)

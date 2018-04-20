@@ -26,7 +26,7 @@ class TestHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
         req_str = "{}?limit={}".format(REST_RESOURCE_NAME, limit)
 
         # Si hay que hacer busqueda, añadirla a la cadena de peticion
-        if search_str!="":
+        if search_str != "":
             req_str += "&{}".format(search_str)
 
         print("Recurso solicitado: {}".format(req_str))
@@ -60,11 +60,11 @@ class TestHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
 
         return index_html
 
-    def req_listdrugs(self):
+    def req_listdrugs(self, limit):
         """Devolver el mensaje con la peticion del listado de fármacos"""
         # Lanzar la peticion a openFDA
         # Establecer la conexion con el servidor
-        drugs = self.openfda_req(limit=1)
+        drugs = self.openfda_req(limit)
 
         # -- Ahora drugs es un diccionario que contiene la respuesta recibida
         # -- Necesitamos conocer su estructura para procesarlo correctamente
@@ -81,25 +81,6 @@ class TestHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
         limit = meta['results']['limit']
 
         print("* Objetos recibidos: {} / {}".format(limit, total))
-
-        # Campo RESULTS: contiene los resultados de la busqueda
-        # drugs.results[0]
-        drugs = drugs['results'][0]
-
-        # Nombre del componente principal: drugs.openfda.substance_name[0]
-        nombre = drugs['openfda']['substance_name'][0]
-
-        # Marca: drugs.openfda.brand_name[0]
-        marca = drugs['openfda']['brand_name'][0]
-
-        # Nombre del fabricante: drugs.openfda.manufacturer_name[0]
-        fabricante = drugs['openfda']['manufacturer_name'][0]
-
-        # Identificador: drugs.id
-        id = drugs['id']
-
-        # Proposito: drugs.purpose[0]
-        proposito = drugs['purpose'][0]
 
         message = (' <!DOCTYPE html>\n'
                    '<html lang="es">\n'
@@ -111,8 +92,36 @@ class TestHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
                    '\n'
                    '<ul>\n')
 
-        message += "<li>{}. {}. {}. {}. {}</li>\n".format(nombre, marca, fabricante, id, proposito)
+        # Campo RESULTS: contiene los resultados de la busqueda
+        # drugs.results[0]
+        for drug in drugs['results']:
 
+            # Nombre del componente principal: drugs.openfda.substance_name[0]
+            if drug['openfda']:
+                nombre = drug['openfda']['substance_name'][0]
+
+                # Marca: drugs.openfda.brand_name[0]
+                marca = drug['openfda']['brand_name'][0]
+
+                # Nombre del fabricante: drugs.openfda.manufacturer_name[0]
+                fabricante = drug['openfda']['manufacturer_name'][0]
+            else:
+                nombre = "Desconocido"
+                marca = "Desconocido"
+                fabricante = "Desconocido"
+
+            # Identificador: drugs.id
+            id = drug['id']
+
+            # Proposito: drugs.purpose[0]
+            try:
+                proposito = drug['purpose'][0]
+            except KeyError:
+                proposito = "Desconocido"
+
+            message += "<li>{}. {}. {}. {}. {}</li>\n".format(nombre, marca, fabricante, id, proposito)
+
+        # Parte final del html
         message += ('</ul>\n'
                     '\n'
                     '<a href="/">Home</a>'
@@ -121,11 +130,11 @@ class TestHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
 
         return message
 
-    def req_listcompanies(self):
+    def req_listcompanies(self, limit):
 
         # Lanzar la peticion a openFDA
         # Establecer la conexion con el servidor
-        drugs = self.openfda_req(limit=1)
+        drugs = self.openfda_req(limit)
 
         # -- Ahora drugs es un diccionario que contiene la respuesta recibida
         # -- Necesitamos conocer su estructura para procesarlo correctamente
@@ -143,25 +152,6 @@ class TestHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
 
         print("* Objetos recibidos: {} / {}".format(limit, total))
 
-        # Campo RESULTS: contiene los resultados de la busqueda
-        # drugs.results[0]
-        drugs = drugs['results'][0]
-
-        # Nombre del componente principal: drugs.openfda.substance_name[0]
-        nombre = drugs['openfda']['substance_name'][0]
-
-        # Marca: drugs.openfda.brand_name[0]
-        marca = drugs['openfda']['brand_name'][0]
-
-        # Nombre del fabricante: drugs.openfda.manufacturer_name[0]
-        fabricante = drugs['openfda']['manufacturer_name'][0]
-
-        # Identificador: drugs.id
-        id = drugs['id']
-
-        # Proposito: drugs.purpose[0]
-        proposito = drugs['purpose'][0]
-
         message = (' <!DOCTYPE html>\n'
                    '<html lang="es">\n'
                    '<head>\n'
@@ -172,17 +162,27 @@ class TestHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
                    '\n'
                    '<ul>\n')
 
-        message += "<li>{}</li>\n".format(fabricante)
+        # Campo RESULTS: contiene los resultados de la busqueda
+        # drugs.results[0]
+        for drug in drugs['results']:
 
+            # Nombre del componente principal: drugs.openfda.substance_name[0]
+            if drug['openfda']:
+
+                try:
+                    message += "<li>{}</li>".format(drug['openfda']['manufacturer_name'][0])
+                except KeyError:
+                    pass
+
+        # Parte final del html
         message += ('</ul>\n'
                     '\n'
                     '<a href="/">Home</a>'
                     '</body>\n'
                     '</html>')
 
+        print("Aqui llega...")
         return message
-
-        return "Hola k ase"
 
     # GET. Este metodo se invoca automaticamente cada vez que hay una
     # peticion GET por HTTP. El recurso que nos solicitan se encuentra
@@ -193,21 +193,46 @@ class TestHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
 
         message = ""  # type: str
 
+        # Dividir entre el endpoint y los parametros
+        recurso_list = self.path.split("?")
+        endpoint = recurso_list[0]
+        if len(recurso_list) > 1:
+            params = recurso_list[1]
+        else:
+            params = ""
+
+        print("Endpoint: {}, params: {}".format(endpoint, params))
+
+        # -- Valores por defecto de los parametros
+        limit = 1
+
+        # Obtener los parametros
+        if params:
+            print("Hay parametros")
+            parse_limit = params.split("=")
+            if parse_limit[0] == "limit":
+                limit = int(parse_limit[1])
+                print("Limit: {}".format(limit))
+        else:
+            print("SIN PARAMETROS")
+
+
+
         # -- Pagina INDICE
-        if self.path == "/":
+        if endpoint == "/":
 
             message = self.req_index()
 
         # -- Listado de farmacos
-        elif self.path == "/ListDrugs":
+        elif endpoint == "/listDrugs":
 
             print("Listado de farmacos solicitado: ListDrugs!")
-            message = self.req_listdrugs()
+            message = self.req_listdrugs(limit)
 
-        elif self.path == "/ListCompanies":
+        elif endpoint == "/ListCompanies":
 
             print("Listado de empresas")
-            message = self.req_listcompanies()
+            message = self.req_listcompanies(limit=10)
 
         # La primera linea del mensaje de respuesta es el
         # status. Indicamos que OK
