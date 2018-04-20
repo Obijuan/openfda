@@ -19,6 +19,171 @@ headers = {'User-Agent': 'http-client'}
 # nosotros consideremos los podemos reemplazar por los nuestros
 class TestHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
 
+    def openfda_req(self, limit=1, search_str=""):
+        """Realizar una peticion a openFPGA"""
+
+        # Crear la cadena con la peticion
+        req_str = "{}?limit={}".format(REST_RESOURCE_NAME, limit)
+
+        # Si hay que hacer busqueda, añadirla a la cadena de peticion
+        if search_str!="":
+            req_str += "&{}".format(search_str)
+
+        print("Recurso solicitado: {}".format(req_str))
+
+        conn = http.client.HTTPSConnection(REST_SERVER_NAME)
+
+        # Enviar un mensaje de solicitud
+        conn.request("GET", req_str, None, headers)
+
+        # Obtener la respuesta del servidor
+        r1 = conn.getresponse()
+
+        # r1.status == 404:
+        #   print("ERROR. Recurso {} no encontrado".format(REST_RESOURCE_NAME))
+        #   exit(1)
+
+        print("  * {} {}".format(r1.status, r1.reason))
+
+        # Leer el contenido en json, y transformarlo en una cadena
+        drugs_json = r1.read().decode("utf-8")
+        conn.close()
+
+        # ---- Procesar el contenido JSON
+        return json.loads(drugs_json)
+
+    def req_index(self):
+        """Devolver el mensaje con la página indice"""
+
+        with open(INDEX_FILE, "r") as f:
+            index_html = f.read()
+
+        return index_html
+
+    def req_listdrugs(self):
+        """Devolver el mensaje con la peticion del listado de fármacos"""
+        # Lanzar la peticion a openFDA
+        # Establecer la conexion con el servidor
+        drugs = self.openfda_req(limit=1)
+
+        # -- Ahora drugs es un diccionario que contiene la respuesta recibida
+        # -- Necesitamos conocer su estructura para procesarlo correctamente
+
+        # Campo META, que contiene informacion sobre la busqueda
+        meta = drugs['meta']
+
+        # Por ejemplo, podemos saber el numero de objetos totales en la base de datos y los devueltos
+        # en esta busqueda
+        # Objetos totales: meta.results.total
+        # Objetos recibidos: meta.results.limit
+
+        total = meta['results']['total']
+        limit = meta['results']['limit']
+
+        print("* Objetos recibidos: {} / {}".format(limit, total))
+
+        # Campo RESULTS: contiene los resultados de la busqueda
+        # drugs.results[0]
+        drugs = drugs['results'][0]
+
+        # Nombre del componente principal: drugs.openfda.substance_name[0]
+        nombre = drugs['openfda']['substance_name'][0]
+
+        # Marca: drugs.openfda.brand_name[0]
+        marca = drugs['openfda']['brand_name'][0]
+
+        # Nombre del fabricante: drugs.openfda.manufacturer_name[0]
+        fabricante = drugs['openfda']['manufacturer_name'][0]
+
+        # Identificador: drugs.id
+        id = drugs['id']
+
+        # Proposito: drugs.purpose[0]
+        proposito = drugs['purpose'][0]
+
+        message = (' <!DOCTYPE html>\n'
+                   '<html lang="es">\n'
+                   '<head>\n'
+                   '    <meta charset="UTF-8">\n'
+                   '</head>\n'
+                   '<body>\n'
+                   '<p>Nombre. Marca. Fabricante. ID. Propósito</p>'
+                   '\n'
+                   '<ul>\n')
+
+        message += "<li>{}. {}. {}. {}. {}</li>\n".format(nombre, marca, fabricante, id, proposito)
+
+        message += ('</ul>\n'
+                    '\n'
+                    '<a href="/">Home</a>'
+                    '</body>\n'
+                    '</html>')
+
+        return message
+
+    def req_listcompanies(self):
+
+        # Lanzar la peticion a openFDA
+        # Establecer la conexion con el servidor
+        drugs = self.openfda_req(limit=1)
+
+        # -- Ahora drugs es un diccionario que contiene la respuesta recibida
+        # -- Necesitamos conocer su estructura para procesarlo correctamente
+
+        # Campo META, que contiene informacion sobre la busqueda
+        meta = drugs['meta']
+
+        # Por ejemplo, podemos saber el numero de objetos totales en la base de datos y los devueltos
+        # en esta busqueda
+        # Objetos totales: meta.results.total
+        # Objetos recibidos: meta.results.limit
+
+        total = meta['results']['total']
+        limit = meta['results']['limit']
+
+        print("* Objetos recibidos: {} / {}".format(limit, total))
+
+        # Campo RESULTS: contiene los resultados de la busqueda
+        # drugs.results[0]
+        drugs = drugs['results'][0]
+
+        # Nombre del componente principal: drugs.openfda.substance_name[0]
+        nombre = drugs['openfda']['substance_name'][0]
+
+        # Marca: drugs.openfda.brand_name[0]
+        marca = drugs['openfda']['brand_name'][0]
+
+        # Nombre del fabricante: drugs.openfda.manufacturer_name[0]
+        fabricante = drugs['openfda']['manufacturer_name'][0]
+
+        # Identificador: drugs.id
+        id = drugs['id']
+
+        # Proposito: drugs.purpose[0]
+        proposito = drugs['purpose'][0]
+
+        message = (' <!DOCTYPE html>\n'
+                   '<html lang="es">\n'
+                   '<head>\n'
+                   '    <meta charset="UTF-8">\n'
+                   '</head>\n'
+                   '<body>\n'
+                   '<p>Fabricantes</p>'
+                   '\n'
+                   '<ul>\n')
+
+        message += "<li>{}</li>\n".format(fabricante)
+
+        message += ('</ul>\n'
+                    '\n'
+                    '<a href="/">Home</a>'
+                    '</body>\n'
+                    '</html>')
+
+        return message
+
+        return "Hola k ase"
+
     # GET. Este metodo se invoca automaticamente cada vez que hay una
     # peticion GET por HTTP. El recurso que nos solicitan se encuentra
     # en self.path
@@ -28,94 +193,21 @@ class TestHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
 
         message = ""  # type: str
 
+        # -- Pagina INDICE
         if self.path == "/":
-            print("PAGINA INDICE")
-            with open(INDEX_FILE, "r") as f:
-                message = f.read()
+
+            message = self.req_index()
+
+        # -- Listado de farmacos
         elif self.path == "/ListDrugs":
+
             print("Listado de farmacos solicitado: ListDrugs!")
+            message = self.req_listdrugs()
 
-            # Lanar la peticion a openFDA
-            # Establecer la conexion con el servidor
-            conn = http.client.HTTPSConnection(REST_SERVER_NAME)
+        elif self.path == "/ListCompanies":
 
-            # Enviar un mensaje de solicitud
-            conn.request("GET", REST_RESOURCE_NAME, None, headers)
-
-            # Obtener la respuesta del servidor
-            r1 = conn.getresponse()
-
-            # r1.status == 404:
-            #   print("ERROR. Recurso {} no encontrado".format(REST_RESOURCE_NAME))
-            #   exit(1)
-
-            print("  * {} {}".format(r1.status, r1.reason))
-
-            # Leer el contenido en json, y transformarlo en una cadena
-            drugs_json = r1.read().decode("utf-8")
-            conn.close()
-
-            # ---- Procesar el contenido JSON
-            drugs = json.loads(drugs_json)
-
-            # -- Ahora drugs es un diccionario que contiene la respuesta recibida
-            # -- Necesitamos conocer su estructura para procesarlo correctamente
-
-            # Campo META, que contiene informacion sobre la busqueda
-            meta = drugs['meta']
-
-            # Por ejemplo, podemos saber el numero de objetos totales en la base de datos y los devueltos
-            # en esta busqueda
-            # Objetos totales: meta.results.total
-            # Objetos recibidos: meta.results.limit
-
-            total = meta['results']['total']
-            limit = meta['results']['limit']
-
-            print("* Objetos recibidos: {} / {}".format(limit, total))
-
-            # Campo RESULTS: contiene los resultados de la busqueda
-            # drugs.results[0]
-            drugs = drugs['results'][0]
-
-            # Nombre del componente principal: drugs.openfda.substance_name[0]
-            nombre = drugs['openfda']['substance_name'][0]
-
-            # Marca: drugs.openfda.brand_name[0]
-            marca = drugs['openfda']['brand_name'][0]
-
-            # Nombre del fabricante: drugs.openfda.manufacturer_name[0]
-            fabricante = drugs['openfda']['manufacturer_name'][0]
-
-            # Identificador: drugs.id
-            id = drugs['id']
-
-            # Proposito: drugs.purpose[0]
-            proposito = drugs['purpose'][0]
-
-            print("")
-            print("Nombre: {}".format(nombre))
-            print("Marca: {}".format(marca))
-            print("Fabricante: {}".format(fabricante))
-            print("Id: {}".format(id))
-            print("Proposito: {}".format(proposito))
-
-            message = (' <!DOCTYPE html>\n'
-                       '<html lang="es">\n'
-                       '<head>\n'
-                       '    <meta charset="UTF-8">\n'
-                       '</head>\n'
-                       '<body>\n'
-                       '\n'
-                       '<ul>\n')
-
-            message += "<li>{}</li>\n".format(nombre)
-
-            message += ('</ul>\n'
-                        '\n'
-                        '<a href="/">Home</a>'
-                        '</body>\n'
-                        '</html>')
+            print("Listado de empresas")
+            message = self.req_listcompanies()
 
         # La primera linea del mensaje de respuesta es el
         # status. Indicamos que OK
